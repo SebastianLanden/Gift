@@ -2,82 +2,183 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Unlock the Link</title>
+<title>Tetris Challenge</title>
 <style>
-  body { font-family: sans-serif; text-align: center; background: #222; color: #eee; }
+  body { font-family: sans-serif; text-align: center; background: #111; color: #eee; }
   h1 { margin-top: 20px; }
-  #grid { display: grid; grid-template-columns: repeat(3, 60px); grid-gap: 5px; justify-content: center; margin-top: 30px; }
-  .tile { width: 60px; height: 60px; background: #555; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 2em; color: #222; }
-  .active { background: #ff0; color: #000; }
-  #link { margin-top: 30px; font-size: 1.2em; display: none; }
+  #tetris { display: grid; grid-template-columns: repeat(10, 30px); grid-gap: 1px; margin: 20px auto; background: #222; }
+  .cell { width: 30px; height: 30px; background: #111; border: 1px solid #333; }
+  .filled { background: #0f0; }
+  #score { margin-top: 10px; }
+  #link { margin-top: 20px; display: none; font-size: 1.2em; }
 </style>
 </head>
 <body>
-<h1>Unlock the Link</h1>
-<p>Click the tiles to match the correct pattern.</p>
-<div id="grid"></div>
-<div id="link"><a href="https://account.vintagestory.at/createaccount?gamekeycode=hidden" target="_blank">🎉 Click Here for Your Link 🎉</a></div>
+<h1>Tetris Challenge</h1>
+<p>Score 50 points to unlock the link!</p>
+<div id="tetris"></div>
+<div id="score">Score: 0</div>
+<div id="link"><a href="https://example.com" target="_blank">🎉 Secret Link Unlocked! 🎉</a></div>
 
 <script>
-const gridSize = 3;
-const solution = [
-  [1,0,1],
-  [0,1,0],
-  [1,0,1]
+const rows = 20, cols = 10;
+let score = 0;
+const targetScore = 50;
+
+const grid = [];
+const tetrisContainer = document.getElementById("tetris");
+
+// Create grid
+for(let r=0;r<rows;r++){
+  grid[r] = [];
+  for(let c=0;c<cols;c++){
+    grid[r][c] = 0;
+    const cell = document.createElement("div");
+    cell.classList.add("cell");
+    cell.dataset.row = r;
+    cell.dataset.col = c;
+    tetrisContainer.appendChild(cell);
+  }
+}
+
+// Shapes
+const shapes = [
+  [[1,1,1,1]], // I
+  [[1,1],[1,1]], // O
+  [[0,1,0],[1,1,1]], // T
+  [[1,0,0],[1,1,1]], // L
 ];
 
-let grid = [
-  [0,0,0],
-  [0,0,0],
-  [0,0,0]
-];
+let currentShape = null;
+let shapeRow = 0;
+let shapeCol = 3;
 
-const container = document.getElementById("grid");
-
-// Create tiles
-for(let r=0; r<gridSize; r++){
-  for(let c=0; c<gridSize; c++){
-    const tile = document.createElement("div");
-    tile.classList.add("tile");
-    tile.dataset.row = r;
-    tile.dataset.col = c;
-    tile.addEventListener("click", () => toggleTile(r,c));
-    container.appendChild(tile);
-  }
-}
-
-function toggleTile(r,c){
-  const coords = [[0,0],[0,1],[0,-1],[1,0],[-1,0]]; // self + neighbors
-  coords.forEach(([dr,dc]) => {
-    let nr = r + dr, nc = c + dc;
-    if(nr>=0 && nr<gridSize && nc>=0 && nc<gridSize){
-      grid[nr][nc] ^= 1;
-      updateTile(nr,nc);
-    }
+// Draw shape
+function drawShape() {
+  clearShape();
+  currentShape.forEach((row,rIdx)=>{
+    row.forEach((cell,cIdx)=>{
+      if(cell){
+        const rowPos = shapeRow + rIdx;
+        const colPos = shapeCol + cIdx;
+        if(rowPos >= 0){
+          grid[rowPos][colPos] = 2;
+        }
+      }
+    });
   });
-  if(checkSolution()){
-    document.getElementById("link").style.display = "block";
+  renderGrid();
+}
+
+function clearShape(){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(grid[r][c]===2) grid[r][c]=0;
+    }
   }
 }
 
-function updateTile(r,c){
-  const tiles = document.querySelectorAll(".tile");
-  tiles.forEach(tile => {
-    if(parseInt(tile.dataset.row)===r && parseInt(tile.dataset.col)===c){
-      tile.classList.toggle("active", grid[r][c]===1);
-      tile.textContent = grid[r][c]===1 ? "★" : "";
-    }
+// Render grid
+function renderGrid(){
+  const cells = document.querySelectorAll(".cell");
+  cells.forEach(cell=>{
+    const r = parseInt(cell.dataset.row);
+    const c = parseInt(cell.dataset.col);
+    if(grid[r][c]) cell.classList.add("filled");
+    else cell.classList.remove("filled");
   });
 }
 
-function checkSolution(){
-  for(let r=0; r<gridSize; r++){
-    for(let c=0; c<gridSize; c++){
-      if(grid[r][c] !== solution[r][c]) return false;
+// Place shape and check lines
+function placeShape(){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(grid[r][c]===2) grid[r][c]=1;
     }
   }
-  return true;
+  checkLines();
+  spawnShape();
 }
+
+// Check complete lines
+function checkLines(){
+  for(let r=rows-1;r>=0;r--){
+    if(grid[r].every(cell=>cell===1)){
+      grid.splice(r,1);
+      grid.unshift(new Array(cols).fill(0));
+      score += 10;
+      document.getElementById("score").textContent = "Score: " + score;
+      if(score >= targetScore) document.getElementById("link").style.display = "block";
+    }
+  }
+}
+
+// Spawn new shape
+function spawnShape(){
+  const rand = shapes[Math.floor(Math.random()*shapes.length)];
+  currentShape = rand;
+  shapeRow = 0;
+  shapeCol = 3;
+  drawShape();
+}
+
+// Move shape down
+function moveDown(){
+  shapeRow++;
+  if(collides()){
+    shapeRow--;
+    placeShape();
+  } else drawShape();
+}
+
+// Collision detection
+function collides(){
+  for(let r=0;r<currentShape.length;r++){
+    for(let c=0;c<currentShape[r].length;c++){
+      if(currentShape[r][c]){
+        const rowPos = shapeRow + r;
+        const colPos = shapeCol + c;
+        if(rowPos >= rows || colPos<0 || colPos>=cols || grid[rowPos][colPos]===1){
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// Move left/right
+function move(dir){
+  shapeCol += dir;
+  if(collides()) shapeCol -= dir;
+  drawShape();
+}
+
+// Rotate
+function rotate(){
+  const n = currentShape.length;
+  const rotated = Array.from({length:n},()=>Array(n).fill(0));
+  for(let r=0;r<n;r++){
+    for(let c=0;c<n;c++){
+      rotated[c][n-1-r] = currentShape[r][c] || 0;
+    }
+  }
+  const oldShape = currentShape;
+  currentShape = rotated;
+  if(collides()) currentShape = oldShape;
+  drawShape();
+}
+
+// Controls
+document.addEventListener("keydown",e=>{
+  if(e.key==="ArrowLeft") move(-1);
+  if(e.key==="ArrowRight") move(1);
+  if(e.key==="ArrowDown") moveDown();
+  if(e.key==="ArrowUp") rotate();
+});
+
+spawnShape();
+setInterval(moveDown, 800);
 </script>
 </body>
 </html>
